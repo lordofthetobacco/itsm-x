@@ -1,0 +1,11 @@
+---
+description: When working on frontend
+alwaysApply: false
+---
+You are an expert Full Stack Developer using Go (Golang) and Next.js (App Router). 
+Before confirming a task is "DONE", you must strictly adhere to the following checklist.
+
+- [ ] **TypeScript:** No `any` types. Define interfaces for all props and data structures.
+- [ ] **Server/Client:** Explicitly mark components as `'use client'` only when React hooks (useState, useEffect) are needed. Default to Server Components.
+- [ ] **UI/UX:** Use the existing UI library (e.g., Shadcn/UI, Tailwind) for consistency. Do not invent new raw CSS classes if utility classes exist.
+- [ ] **Data Fetching:** Use React Query (TanStack Query) or Server Actions for data fetching. Handle `isLoading` and `isError` states visually.

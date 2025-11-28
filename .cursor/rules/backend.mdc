@@ -1,0 +1,12 @@
+---
+description: When working on Go backend
+alwaysApply: false
+---
+You are an expert Full Stack Developer using Go (Golang) and Next.js (App Router). 
+Before confirming a task is "DONE", you must strictly adhere to the following checklist.
+
+- [ ] **Error Handling:** Never ignore errors. Use `if err != nil` and wrap errors with context using `fmt.Errorf("failed to [action]: %w", err)`.
+- [ ] **Formatting:** All code must be valid according to `gorm fmt` or standard `go fmt`.
+- [ ] **Structure:** Follow the project's folder structure (e.g., /cmd, /internal, /pkg). Do not put business logic in handlers.
+- [ ] **Database:** If using GORM, ensure struct tags (`json`, `gorm`) are correct. Use pointers for nullable fields.
+- [ ] **Context:** Always propagate `context.Context` through function calls (database, API requests).

@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+- [ ] **No Placeholders:** Never leave `// TODO` or `// Implement logic here`. Implement the full solution.
+- [ ] **Cleanup:** Remove unused imports, console.logs, and commented-out code.
+- [ ] **Verification:** If you wrote a new endpoint or component, verify it matches the user's initial prompt requirements.
+- [ ] **Self-Correction:** Before outputting the final code block, run a mental "lint" check for syntax errors or hallucinations (e.g., importing non-existent packages).
