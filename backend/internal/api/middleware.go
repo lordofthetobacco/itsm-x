@@ -62,4 +62,3 @@ func GetUserFromContext(c *gin.Context) (*db.User, error) {
 
 	return userObj, nil
 }
-

@@ -116,4 +116,3 @@ func ValidateRefreshToken(tokenString string) (uint, error) {
 
 	return userID, nil
 }
-
