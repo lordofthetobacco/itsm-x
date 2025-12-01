@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -55,6 +57,7 @@ func Migrate(ctx context.Context) error {
 		&User{},
 		&Ticket{},
 		&Comment{},
+		&RefreshToken{},
 	); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
@@ -87,7 +90,7 @@ func SeedAdminUser(ctx context.Context) error {
 
 	adminUser := User{
 		Name:         "Admin",
-		Email:        "admin",
+		Email:        "admin@itsm.x",
 		PasswordHash: string(hashedPassword),
 		Role:         "admin",
 		CreatedAt:    time.Now(),
@@ -193,6 +196,100 @@ func DeleteUser(ctx context.Context, id uint) error {
 
 	if err := db.WithContext(ctx).Delete(&User{}, id).Error; err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	return nil
+}
+
+func GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
+
+	var user User
+	if err := db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return &user, nil
+}
+
+func ValidatePassword(hashedPassword, password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return err == nil
+}
+
+func hashRefreshToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
+func CreateRefreshToken(ctx context.Context, userID uint, token string, expiresAt time.Time) error {
+	if db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	hashedToken := hashRefreshToken(token)
+
+	refreshToken := RefreshToken{
+		UserID:    userID,
+		Token:     hashedToken,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+
+	if err := db.WithContext(ctx).Create(&refreshToken).Error; err != nil {
+		return fmt.Errorf("failed to create refresh token: %w", err)
+	}
+
+	return nil
+}
+
+func GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
+
+	hashedToken := hashRefreshToken(token)
+
+	var refreshToken RefreshToken
+	if err := db.WithContext(ctx).Where("token = ? AND expires_at > ?", hashedToken, time.Now()).First(&refreshToken).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("refresh token not found or expired")
+		}
+		return nil, fmt.Errorf("failed to get refresh token: %w", err)
+	}
+
+	return &refreshToken, nil
+}
+
+func DeleteRefreshToken(ctx context.Context, token string) error {
+	if db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	refreshToken, err := GetRefreshToken(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	if err := db.WithContext(ctx).Delete(refreshToken).Error; err != nil {
+		return fmt.Errorf("failed to delete refresh token: %w", err)
+	}
+
+	return nil
+}
+
+func DeleteUserRefreshTokens(ctx context.Context, userID uint) error {
+	if db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	if err := db.WithContext(ctx).Where("user_id = ?", userID).Delete(&RefreshToken{}).Error; err != nil {
+		return fmt.Errorf("failed to delete user refresh tokens: %w", err)
 	}
 
 	return nil

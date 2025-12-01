@@ -10,6 +10,7 @@ import (
 type Config struct {
 	DbConfig     DbConfig     `yaml:"db"`
 	ServerConfig ServerConfig `yaml:"server"`
+	JWTConfig    JWTConfig    `yaml:"jwt"`
 }
 
 type DbConfig struct {
@@ -25,6 +26,12 @@ type ServerConfig struct {
 	Port        string `yaml:"port"`
 	Environment string `yaml:"environment"`
 	LogLevel    string `yaml:"log_level"`
+}
+
+type JWTConfig struct {
+	Secret                 string `yaml:"secret"`
+	ExpirationHours        int    `yaml:"expiration_hours"`
+	RefreshExpirationHours int    `yaml:"refresh_expiration_hours"`
 }
 
 var config *Config

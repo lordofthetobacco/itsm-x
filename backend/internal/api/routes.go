@@ -9,15 +9,32 @@ var router *gin.Engine
 
 func setupRoutes(router *gin.Engine) {
 	router.GET("/health", GetHealth)
-	router.GET("/users", GetUsers)
-	router.GET("/users/:id", GetUser)
-	router.POST("/users", CreateUser)
-	router.PUT("/users/:id", UpdateUser)
-	router.DELETE("/users/:id", DeleteUser)
+
+	authGroup := router.Group("/auth")
+	{
+		authGroup.POST("/login", Login)
+		authGroup.POST("/register", Register)
+		authGroup.POST("/refresh", Refresh)
+		authGroup.POST("/logout", Logout)
+	}
+
+	protected := router.Group("/")
+	protected.Use(AuthMiddleware())
+	{
+		protected.GET("/users", GetUsers)
+		protected.GET("/users/:id", GetUser)
+		protected.POST("/users", CreateUser)
+		protected.PUT("/users/:id", UpdateUser)
+		protected.DELETE("/users/:id", DeleteUser)
+	}
 }
 
 func init() {
-	gin.SetMode(config.GetConfig().ServerConfig.Environment)
+	if config.GetConfig().ServerConfig.Environment == "development" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	router = gin.Default()
 	setupRoutes(router)
 }

@@ -1,4 +1,4 @@
-app:
+server:
   port: 8080
   environment: development
   log_level: debug
@@ -10,3 +10,8 @@ db:
   password: postgres
   db_name: postgres
   ssl_mode: disable
+
+jwt:
+  secret: your-secret-key-change-in-production
+  expiration_hours: 24
+  refresh_expiration_hours: 168

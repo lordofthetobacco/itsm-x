@@ -39,3 +39,12 @@ type Comment struct {
 	User      User      `json:"user,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type RefreshToken struct {
+	ID        uint      `gorm:"primaryKey"`
+	UserID    uint      `gorm:"not null;index" json:"user_id"`
+	User      User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Token     string    `gorm:"type:text;not null;uniqueIndex" json:"-"`
+	ExpiresAt time.Time `gorm:"not null;index" json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
