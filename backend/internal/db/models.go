@@ -2,22 +2,65 @@ package db
 
 import "time"
 
+type Role struct {
+	ID          uint      `gorm:"primaryKey"`
+	Name        string    `gorm:"uniqueIndex;not null" json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	Users       []User    `gorm:"foreignKey:RoleID"`
+}
+
+type Permission struct {
+	ID          uint      `gorm:"primaryKey"`
+	Name        string    `gorm:"uniqueIndex;not null" json:"name"`
+	Resource    string    `gorm:"not null;index" json:"resource"`
+	Action      string    `gorm:"not null;index" json:"action"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	Roles       []Role    `gorm:"many2many:role_permissions;"`
+}
+
+type RolePermission struct {
+	RoleID       uint       `gorm:"primaryKey;index" json:"role_id"`
+	PermissionID uint       `gorm:"primaryKey;index" json:"permission_id"`
+	CreatedAt    time.Time  `json:"created_at"`
+	Role         Role       `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+	Permission   Permission `gorm:"foreignKey:PermissionID" json:"permission,omitempty"`
+}
+
 type User struct {
 	ID           uint      `gorm:"primaryKey"`
 	Name         string    `json:"name"`
 	Email        string    `gorm:"uniqueIndex" json:"email"`
 	PasswordHash string    `json:"-"`
-	Role         string    `json:"role"`
+	RoleID       uint      `gorm:"not null;index" json:"role_id"`
+	Role         Role      `gorm:"foreignKey:RoleID" json:"role,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	Tickets      []Ticket  `gorm:"foreignKey:RequesterID"`
+}
+
+type TicketStatus struct {
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"uniqueIndex;not null" json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type TicketPriority struct {
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"uniqueIndex;not null" json:"name"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Ticket struct {
 	ID          uint   `gorm:"primaryKey"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	Status      string `json:"status"`
-	Priority    string `json:"priority"`
+
+	StatusID uint         `gorm:"not null;index" json:"status_id"`
+	Status   TicketStatus `gorm:"foreignKey:StatusID" json:"status,omitempty"`
+
+	PriorityID uint           `gorm:"not null;index" json:"priority_id"`
+	Priority   TicketPriority `gorm:"foreignKey:PriorityID" json:"priority,omitempty"`
 
 	RequesterID uint `json:"requester_id"`
 	Requester   User `gorm:"foreignKey:RequesterID" json:"requester,omitempty"`

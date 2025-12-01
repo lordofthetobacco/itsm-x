@@ -16,14 +16,14 @@ type CreateUserRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
-	Role     string `json:"role"`
+	RoleID   uint   `json:"role_id"`
 }
 
 type UpdateUserRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email" binding:"omitempty,email"`
 	Password string `json:"password"`
-	Role     string `json:"role"`
+	RoleID   *uint  `json:"role_id"`
 }
 
 func GetHealth(c *gin.Context) {
@@ -72,7 +72,7 @@ func CreateUser(c *gin.Context) {
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: req.Password,
-		Role:         req.Role,
+		RoleID:       req.RoleID,
 	}
 
 	if err := db.CreateUser(c.Request.Context(), user); err != nil {
@@ -80,7 +80,13 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, user)
+	createdUser, err := db.GetUserByID(c.Request.Context(), user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, createdUser)
 }
 
 func UpdateUser(c *gin.Context) {
@@ -107,8 +113,8 @@ func UpdateUser(c *gin.Context) {
 	if req.Password != "" {
 		updates["password"] = req.Password
 	}
-	if req.Role != "" {
-		updates["role"] = req.Role
+	if req.RoleID != nil {
+		updates["role_id"] = *req.RoleID
 	}
 
 	if len(updates) == 0 {
@@ -155,7 +161,7 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
-	Role     string `json:"role"`
+	RoleID   uint   `json:"role_id"`
 }
 
 type RefreshRequest struct {
@@ -186,7 +192,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateToken(user.ID, user.Email, user.Role)
+	accessToken, err := auth.GenerateToken(user.ID, user.Email, user.RoleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -220,11 +226,21 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	var roleID uint = 4
+	if req.RoleID != 0 {
+		roleID = req.RoleID
+	} else {
+		userRole, err := db.GetRoleByName(c.Request.Context(), "user")
+		if err == nil {
+			roleID = userRole.ID
+		}
+	}
+
 	user := &db.User{
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: req.Password,
-		Role:         req.Role,
+		RoleID:       roleID,
 	}
 
 	if err := db.CreateUser(c.Request.Context(), user); err != nil {
@@ -232,7 +248,13 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateToken(user.ID, user.Email, user.Role)
+	createdUser, err := db.GetUserByID(c.Request.Context(), user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	accessToken, err := auth.GenerateToken(createdUser.ID, createdUser.Email, createdUser.RoleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -255,7 +277,7 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User:         user,
+		User:         createdUser,
 	})
 }
 
@@ -284,7 +306,7 @@ func Refresh(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateToken(user.ID, user.Email, user.Role)
+	accessToken, err := auth.GenerateToken(user.ID, user.Email, user.RoleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -308,4 +330,204 @@ func Logout(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}
+
+type CreateTicketRequest struct {
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description" binding:"required"`
+	StatusID    uint   `json:"status_id" binding:"required"`
+	PriorityID  uint   `json:"priority_id" binding:"required"`
+	RequesterID uint   `json:"requester_id" binding:"required"`
+	AssigneeID  *uint  `json:"assignee_id"`
+}
+
+type UpdateTicketRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	StatusID    *uint  `json:"status_id"`
+	PriorityID  *uint  `json:"priority_id"`
+	AssigneeID  *uint  `json:"assignee_id"`
+}
+
+func GetTickets(c *gin.Context) {
+	tickets, err := db.GetTickets(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tickets)
+}
+
+func GetTicket(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ticket id"})
+		return
+	}
+
+	ticket, err := db.GetTicketByID(c.Request.Context(), uint(id))
+	if err != nil {
+		if err.Error() == "ticket not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, ticket)
+}
+
+func CreateTicket(c *gin.Context) {
+	var req CreateTicketRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ticket := &db.Ticket{
+		Title:       req.Title,
+		Description: req.Description,
+		StatusID:    req.StatusID,
+		PriorityID:  req.PriorityID,
+		RequesterID: req.RequesterID,
+		AssigneeID:  req.AssigneeID,
+	}
+
+	if err := db.CreateTicket(c.Request.Context(), ticket); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	createdTicket, err := db.GetTicketByID(c.Request.Context(), ticket.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, createdTicket)
+}
+
+func UpdateTicket(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ticket id"})
+		return
+	}
+
+	var req UpdateTicketRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := make(map[string]interface{})
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.StatusID != nil {
+		updates["status_id"] = *req.StatusID
+	}
+	if req.PriorityID != nil {
+		updates["priority_id"] = *req.PriorityID
+	}
+	if req.AssigneeID != nil {
+		updates["assignee_id"] = req.AssigneeID
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+
+	if err := db.UpdateTicket(c.Request.Context(), uint(id), updates); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ticket, err := db.GetTicketByID(c.Request.Context(), uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, ticket)
+}
+
+func DeleteTicket(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ticket id"})
+		return
+	}
+
+	if err := db.DeleteTicket(c.Request.Context(), uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+}
+
+func GetTicketStatuses(c *gin.Context) {
+	statuses, err := db.GetAllTicketStatuses(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, statuses)
+}
+
+func GetTicketPriorities(c *gin.Context) {
+	priorities, err := db.GetAllTicketPriorities(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, priorities)
+}
+
+func GetMyPermissions(c *gin.Context) {
+	user, err := GetUserFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+
+	permissions, err := db.GetUserPermissions(c.Request.Context(), user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"permissions": permissions})
+}
+
+func GetRoles(c *gin.Context) {
+	roles, err := db.GetAllRoles(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, roles)
+}
+
+func GetPermissions(c *gin.Context) {
+	permissions, err := db.GetAllPermissions(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, permissions)
 }

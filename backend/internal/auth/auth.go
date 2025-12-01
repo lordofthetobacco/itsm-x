@@ -12,7 +12,7 @@ import (
 type Claims struct {
 	UserID uint   `json:"user_id"`
 	Email  string `json:"email"`
-	Role   string `json:"role"`
+	RoleID uint   `json:"role_id"`
 	jwt.RegisteredClaims
 }
 
@@ -20,14 +20,14 @@ func getSecret() []byte {
 	return []byte(config.GetConfig().JWTConfig.Secret)
 }
 
-func GenerateToken(userID uint, email string, role string) (string, error) {
+func GenerateToken(userID uint, email string, roleID uint) (string, error) {
 	jwtConfig := config.GetConfig().JWTConfig
 	expirationTime := time.Now().Add(time.Duration(jwtConfig.ExpirationHours) * time.Hour)
 
 	claims := &Claims{
 		UserID: userID,
 		Email:  email,
-		Role:   role,
+		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

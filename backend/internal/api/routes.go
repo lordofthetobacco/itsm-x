@@ -16,16 +16,29 @@ func setupRoutes(router *gin.Engine) {
 		authGroup.POST("/register", Register)
 		authGroup.POST("/refresh", Refresh)
 		authGroup.POST("/logout", Logout)
+		authGroup.GET("/permissions", AuthMiddleware(), GetMyPermissions)
 	}
 
 	protected := router.Group("/")
 	protected.Use(AuthMiddleware())
 	{
-		protected.GET("/users", GetUsers)
-		protected.GET("/users/:id", GetUser)
-		protected.POST("/users", CreateUser)
-		protected.PUT("/users/:id", UpdateUser)
-		protected.DELETE("/users/:id", DeleteUser)
+		protected.GET("/ticket-statuses", GetTicketStatuses)
+		protected.GET("/ticket-priorities", GetTicketPriorities)
+
+		protected.GET("/roles", RequirePermission("roles.read"), GetRoles)
+		protected.GET("/permissions", RequirePermission("permissions.read"), GetPermissions)
+
+		protected.GET("/users", RequirePermission("users.read"), GetUsers)
+		protected.GET("/users/:id", RequirePermission("users.read"), GetUser)
+		protected.POST("/users", RequirePermission("users.create"), CreateUser)
+		protected.PUT("/users/:id", RequirePermission("users.update"), UpdateUser)
+		protected.DELETE("/users/:id", RequirePermission("users.delete"), DeleteUser)
+
+		protected.GET("/tickets", RequirePermission("tickets.read"), GetTickets)
+		protected.GET("/tickets/:id", RequirePermission("tickets.read"), GetTicket)
+		protected.POST("/tickets", RequirePermission("tickets.create"), CreateTicket)
+		protected.PUT("/tickets/:id", RequirePermission("tickets.update"), UpdateTicket)
+		protected.DELETE("/tickets/:id", RequirePermission("tickets.delete"), DeleteTicket)
 	}
 }
 
