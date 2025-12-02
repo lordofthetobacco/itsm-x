@@ -33,6 +33,8 @@ type User struct {
 	Name         string    `json:"name"`
 	Email        string    `gorm:"uniqueIndex" json:"email"`
 	PasswordHash string    `json:"-"`
+	Avatar       []byte    `gorm:"type:bytea" json:"-"`
+	AvatarURL    string    `gorm:"-" json:"avatar_url,omitempty"`
 	RoleID       uint      `gorm:"not null;index" json:"role_id"`
 	Role         Role      `gorm:"foreignKey:RoleID" json:"role,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`

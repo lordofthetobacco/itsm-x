@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"itsm.x/config"
 )
@@ -9,6 +10,14 @@ var router *gin.Engine
 
 func setupRoutes(router *gin.Engine) {
 	router.GET("/health", GetHealth)
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
+	router.MaxMultipartMemory = 8 << 20
 
 	authGroup := router.Group("/auth")
 	{
@@ -16,6 +25,7 @@ func setupRoutes(router *gin.Engine) {
 		authGroup.POST("/register", Register)
 		authGroup.POST("/refresh", Refresh)
 		authGroup.POST("/logout", Logout)
+		authGroup.GET("/me", AuthMiddleware(), GetMe)
 		authGroup.GET("/permissions", AuthMiddleware(), GetMyPermissions)
 	}
 
@@ -33,6 +43,10 @@ func setupRoutes(router *gin.Engine) {
 		protected.POST("/users", RequirePermission("users.create"), CreateUser)
 		protected.PUT("/users/:id", RequirePermission("users.update"), UpdateUser)
 		protected.DELETE("/users/:id", RequirePermission("users.delete"), DeleteUser)
+
+		protected.POST("/users/:id/avatar", RequirePermission("users.update"), UploadUserAvatar)
+		protected.GET("/users/:id/avatar", GetUserAvatar)
+		protected.DELETE("/users/:id/avatar", RequirePermission("users.update"), DeleteUserAvatar)
 
 		protected.GET("/tickets", RequirePermission("tickets.read"), GetTickets)
 		protected.GET("/tickets/:id", RequirePermission("tickets.read"), GetTicket)

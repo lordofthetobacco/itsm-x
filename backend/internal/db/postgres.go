@@ -395,6 +395,12 @@ func GetUsers(ctx context.Context) ([]User, error) {
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
 
+	for i := range users {
+		if len(users[i].Avatar) > 0 {
+			users[i].AvatarURL = fmt.Sprintf("/users/%d/avatar", users[i].ID)
+		}
+	}
+
 	return users, nil
 }
 
@@ -409,6 +415,10 @@ func GetUserByID(ctx context.Context, id uint) (*User, error) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if len(user.Avatar) > 0 {
+		user.AvatarURL = fmt.Sprintf("/users/%d/avatar", user.ID)
 	}
 
 	return &user, nil
@@ -475,11 +485,15 @@ func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	}
 
 	var user User
-	if err := db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+	if err := db.WithContext(ctx).Preload("Role").Where("email = ?", email).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if len(user.Avatar) > 0 {
+		user.AvatarURL = fmt.Sprintf("/users/%d/avatar", user.ID)
 	}
 
 	return &user, nil
@@ -791,6 +805,46 @@ func DeleteTicket(ctx context.Context, id uint) error {
 
 	if err := db.WithContext(ctx).Delete(&Ticket{}, id).Error; err != nil {
 		return fmt.Errorf("failed to delete ticket: %w", err)
+	}
+
+	return nil
+}
+
+func UpdateUserAvatar(ctx context.Context, userID uint, avatarData []byte) error {
+	if db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	if err := db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("avatar", avatarData).Error; err != nil {
+		return fmt.Errorf("failed to update user avatar: %w", err)
+	}
+
+	return nil
+}
+
+func GetUserAvatar(ctx context.Context, userID uint) ([]byte, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
+
+	var user User
+	if err := db.WithContext(ctx).Select("avatar").First(&user, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user avatar: %w", err)
+	}
+
+	return user.Avatar, nil
+}
+
+func DeleteUserAvatar(ctx context.Context, userID uint) error {
+	if db == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
+	if err := db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("avatar", nil).Error; err != nil {
+		return fmt.Errorf("failed to delete user avatar: %w", err)
 	}
 
 	return nil

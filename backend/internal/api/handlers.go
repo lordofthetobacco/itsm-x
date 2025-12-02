@@ -496,6 +496,16 @@ func GetTicketPriorities(c *gin.Context) {
 	c.JSON(http.StatusOK, priorities)
 }
 
+func GetMe(c *gin.Context) {
+	user, err := GetUserFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found in context"})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
 func GetMyPermissions(c *gin.Context) {
 	user, err := GetUserFromContext(c)
 	if err != nil {
@@ -530,4 +540,86 @@ func GetPermissions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, permissions)
+}
+
+func UploadUserAvatar(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar file required"})
+		return
+	}
+
+	if file.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar file too large (max 5MB)"})
+		return
+	}
+
+	openedFile, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		return
+	}
+	defer openedFile.Close()
+
+	avatarData := make([]byte, file.Size)
+	if _, err := openedFile.Read(avatarData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		return
+	}
+
+	if err := db.UpdateUserAvatar(c.Request.Context(), uint(id), avatarData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "avatar uploaded successfully"})
+}
+
+func GetUserAvatar(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	avatarData, err := db.GetUserAvatar(c.Request.Context(), uint(id))
+	if err != nil {
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(avatarData) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "avatar not found"})
+		return
+	}
+
+	c.Data(http.StatusOK, "image/jpeg", avatarData)
+}
+
+func DeleteUserAvatar(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if err := db.DeleteUserAvatar(c.Request.Context(), uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "avatar deleted successfully"})
 }
